@@ -144,16 +144,19 @@ endif ()
 add_subdirectory(shell)
 
 # webview_flutter_view (added above, before shell/ existed) transitively
-# includes wayland_vsync_provider.h via display.h, which needs the generated
-# presentation_time_client.hpp header. The codegen target only exists now that
-# shell/CMakeLists.txt (via ivi_wayland_protocols()) has run, so wire the
-# dependency here rather than in the plugin's own CMakeLists.txt: DEFER CALL
-# from within plugins/ only defers to the end of that subdirectory's own
-# scope (which closes before shell/ is even added), not to the end of the
-# full top-level configure.
-if (TARGET plugin_webview_flutter_view AND TARGET wlcxxgen_wayland_protocols_presentation_time_client_hpp)
-    add_dependencies(plugin_webview_flutter_view wlcxxgen_wayland_protocols_presentation_time_client_hpp)
-endif ()
+# includes display.h which pulls in several generated wayland-cxx protocol
+# headers. All codegen targets are created by ivi_wayland_protocols() inside
+# shell/CMakeLists.txt, so they don't exist until after add_subdirectory(shell)
+# above. Wire the build-order dependencies here.
+foreach (_wlcxxgen_tgt
+        wlcxxgen_wayland_protocols_wayland_client_hpp
+        wlcxxgen_wayland_protocols_presentation_time_client_hpp
+        wlcxxgen_wayland_protocols_text_input_v3_client_hpp
+        wlcxxgen_wayland_protocols_text_input_v1_client_hpp)
+    if (TARGET plugin_webview_flutter_view AND TARGET ${_wlcxxgen_tgt})
+        add_dependencies(plugin_webview_flutter_view ${_wlcxxgen_tgt})
+    endif ()
+endforeach ()
 
 #print_target_properties(asio)
 #print_target_properties(flutter)
