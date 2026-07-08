@@ -403,6 +403,20 @@ if (BUILD_BACKEND_WAYLAND_EGL OR BUILD_BACKEND_WAYLAND_VULKAN)
     ivi_wayland_link(${PROJECT_NAME})
 endif ()
 
+# libcef.so uses static TLS and cannot be loaded via dlopen() after process
+# startup.  main() re-execs itself with LD_PRELOAD so the dynamic linker maps
+# libcef.so before any other library's constructors run.
+# HOMESCREEN_CEF_PRELOAD_PATH is the full path injected into main.cc for the
+# re-exec; it is only compiled in when the WebView plugin is active.
+if (BUILD_PLUGIN_WEBVIEW_FLUTTER_VIEW AND DEFINED CEF_ROOT)
+    if (NOT CEF_BUILD_TYPE)
+        set(CEF_BUILD_TYPE "Release")
+    endif ()
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        HOMESCREEN_CEF_PRELOAD_PATH="${CEF_ROOT}/${CEF_BUILD_TYPE}/libcef.so"
+    )
+endif ()
+
 target_link_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_BINARY_DIR}
 )

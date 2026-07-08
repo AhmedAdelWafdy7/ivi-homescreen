@@ -20,6 +20,11 @@
 #include <string_view>
 #include <thread>
 
+#if defined(HOMESCREEN_CEF_PRELOAD_PATH)
+#include <climits>
+#include <unistd.h>
+#endif
+
 #include "config/common.h"
 
 #include "app.h"
@@ -146,6 +151,36 @@ void PublishIhsConfig(const std::vector<Configuration::Config>& configs) {
  * wayland, flutter
  */
 int main(const int argc, char** argv) {
+#if defined(HOMESCREEN_CEF_PRELOAD_PATH)
+  // libcef.so uses static TLS that cannot be allocated via dlopen() once the
+  // process is running.  The dynamic-linker's DT_NEEDED path causes libcef.so
+  // global constructors to bind Chromium's base:: sequencing to the OS main
+  // thread, which then deadlocks CefInitialize when called from any Flutter
+  // task-runner thread.  LD_PRELOAD avoids both issues: the kernel maps
+  // libcef.so first, before any other shared library, so the TLS block is
+  // allocated and Chromium initialises in the correct environment.
+  // On first launch we re-exec ourselves with LD_PRELOAD set; the sentinel
+  // env var prevents an infinite re-exec loop.
+  if (!getenv("CEF_PRELOADED")) {
+    setenv("LD_PRELOAD", HOMESCREEN_CEF_PRELOAD_PATH, 1);
+    setenv("CEF_PRELOADED", "1", 1);
+    char exe[PATH_MAX];
+    const ssize_t n = readlink("/proc/self/exe", exe, sizeof(exe) - 1);
+    if (n > 0) {
+      exe[n] = '\0';
+      execv(exe, argv);
+      // execv only returns on error; fall through and run without preload.
+    }
+    unsetenv("LD_PRELOAD");
+    unsetenv("CEF_PRELOADED");
+  }
+#endif
+
+  // Logging is initialized via ihs_shared/IHS_LOGGING_START below on this
+  // shell generation -- the old spdlog-based Logging/gLogger construction
+  // this commit originally had here was removed upstream and has no home
+  // anymore (verified: no `class Logging` / `gLogger` left anywhere in the
+  // tree past the ihs_shared rewrite).
   IHS_LOGGING_START("IHSC", "ivi-homescreen Flutter runtime");
 
   const auto configs = Configuration::ParseArgcArgv(argc, argv);

@@ -143,20 +143,30 @@ endif ()
 #
 add_subdirectory(shell)
 
-# webview_flutter_view (added above, before shell/ existed) transitively
-# includes display.h which pulls in several generated wayland-cxx protocol
-# headers. All codegen targets are created by ivi_wayland_protocols() inside
-# shell/CMakeLists.txt, so they don't exist until after add_subdirectory(shell)
-# above. Wire the build-order dependencies here.
-foreach (_wlcxxgen_tgt
-        wlcxxgen_wayland_protocols_wayland_client_hpp
-        wlcxxgen_wayland_protocols_presentation_time_client_hpp
-        wlcxxgen_wayland_protocols_text_input_v3_client_hpp
-        wlcxxgen_wayland_protocols_text_input_v1_client_hpp)
-    if (TARGET plugin_webview_flutter_view AND TARGET ${_wlcxxgen_tgt})
-        add_dependencies(plugin_webview_flutter_view ${_wlcxxgen_tgt})
-    endif ()
-endforeach ()
+# Plugins are added before shell/ runs, so the wayland codegen targets
+# (wlcxxgen_*) created by ivi_wayland_protocols() don't exist yet at
+# plugin configure time.  Wire the build-order dependency here, generically,
+# for every target defined under PLUGINS_DIR and EXT_PLUGINS_DIRS.
+if (ENABLE_PLUGINS)
+    set(_all_plugin_dirs "${PLUGINS_DIR}" ${EXT_PLUGINS_DIRS})
+    foreach (_pdir ${_all_plugin_dirs})
+        get_property(_plugin_subdirs DIRECTORY "${_pdir}" PROPERTY SUBDIRECTORIES)
+        foreach (_plugin_subdir ${_plugin_subdirs})
+            get_property(_plugin_tgts DIRECTORY "${_plugin_subdir}" PROPERTY BUILDSYSTEM_TARGETS)
+            foreach (_plugin_tgt ${_plugin_tgts})
+                foreach (_wltgt
+                        wlcxxgen_wayland_protocols_wayland_client_hpp
+                        wlcxxgen_wayland_protocols_presentation_time_client_hpp
+                        wlcxxgen_wayland_protocols_text_input_v3_client_hpp
+                        wlcxxgen_wayland_protocols_text_input_v1_client_hpp)
+                    if (TARGET ${_plugin_tgt} AND TARGET ${_wltgt})
+                        add_dependencies(${_plugin_tgt} ${_wltgt})
+                    endif ()
+                endforeach ()
+            endforeach ()
+        endforeach ()
+    endforeach ()
+endif ()
 
 #print_target_properties(asio)
 #print_target_properties(flutter)
