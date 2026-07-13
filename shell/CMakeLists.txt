@@ -408,12 +408,27 @@ endif ()
 # libcef.so before any other library's constructors run.
 # HOMESCREEN_CEF_PRELOAD_PATH is the full path injected into main.cc for the
 # re-exec; it is only compiled in when the WebView plugin is active.
+#
+# CEF_ROOT itself must stay whatever the build needs to actually find CEF
+# (headers, add_subdirectory, staged libs) -- under a cross-compiled/staged
+# sysroot build (e.g. Yocto) that's a build-host-only path
+# (recipe-sysroot/usr/share/cef) that doesn't exist on the target device, so
+# baking it into HOMESCREEN_CEF_PRELOAD_PATH ships a binary whose LD_PRELOAD
+# silently fails to find libcef.so at runtime (main.cc's re-exec only falls
+# through without preload on error) -- and separately trips a Yocto QA check
+# for embedding a build-path string in an installed binary.
+# CEF_INSTALL_ROOT lets a build set the actual on-target CEF location
+# separately, defaulting to CEF_ROOT unchanged for builds where the two are
+# already the same (e.g. CEF_ROOT already under third_party/, in-tree).
+if (NOT DEFINED CEF_INSTALL_ROOT)
+    set(CEF_INSTALL_ROOT "${CEF_ROOT}")
+endif ()
 if (BUILD_PLUGIN_WEBVIEW_FLUTTER_VIEW AND DEFINED CEF_ROOT)
     if (NOT CEF_BUILD_TYPE)
         set(CEF_BUILD_TYPE "Release")
     endif ()
     target_compile_definitions(${PROJECT_NAME} PRIVATE
-        HOMESCREEN_CEF_PRELOAD_PATH="${CEF_ROOT}/${CEF_BUILD_TYPE}/libcef.so"
+        HOMESCREEN_CEF_PRELOAD_PATH="${CEF_INSTALL_ROOT}/${CEF_BUILD_TYPE}/libcef.so"
     )
 endif ()
 
