@@ -158,7 +158,19 @@ if (ENABLE_PLUGINS)
                         wlcxxgen_wayland_protocols_wayland_client_hpp
                         wlcxxgen_wayland_protocols_presentation_time_client_hpp
                         wlcxxgen_wayland_protocols_text_input_v3_client_hpp
-                        wlcxxgen_wayland_protocols_text_input_v1_client_hpp)
+                        wlcxxgen_wayland_protocols_text_input_v1_client_hpp
+                        # Rest of ivi_wayland_protocols()'s OUTPUT set
+                        # (cmake/wayland_cxx.cmake) -- the four above were the
+                        # only ones any plugin needed when this loop was
+                        # written; chromium_dart_view (shell/wayland/
+                        # input_timestamps.h) needs input_timestamps too, and
+                        # any future plugin touching viewporter/fractional-scale/
+                        # xdg/agl would hit the same gap, so completing the set.
+                        wlcxxgen_wayland_protocols_input_timestamps_client_hpp
+                        wlcxxgen_wayland_protocols_viewporter_client_hpp
+                        wlcxxgen_wayland_protocols_fractional_scale_v1_client_hpp
+                        wlcxxgen_wayland_protocols_xdg_shell_client_hpp
+                        wlcxxgen_wayland_protocols_agl_shell_client_hpp)
                     if (TARGET ${_plugin_tgt} AND TARGET ${_wltgt})
                         add_dependencies(${_plugin_tgt} ${_wltgt})
                     endif ()
